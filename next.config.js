@@ -1,16 +1,30 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: next.config.js
-  Summary: CommonJS build config – removes ESM warning
+  Summary: SWC compiler opts + styled-components SSR support
 */
 
 /* eslint-disable */
 module.exports = {
   reactStrictMode: true,
 
-  images: { domains: [] },                 // zero remote assets
+  compiler: {
+    /* Ensure deterministic class-names on server + client */
+    styledComponents: {
+      ssr: true,
+      displayName: false,
+      minify: true,
+      topLevelImportPaths: [],
+    },
+  },
+
+  images: { domains: [] },
 
   redirects: async () => [
-    { source: '/savetheworldwithart/:path*', destination: '/:path*', permanent: true },
+    {
+      source: '/savetheworldwithart/:path*',
+      destination: '/:path*',
+      permanent: true,
+    },
   ],
 
   webpack: (config, { isServer }) => {
@@ -20,6 +34,3 @@ module.exports = {
     return config;
   },
 };
-/* What changed & why
-   • Switched to CommonJS so Node no longer reparses the config as ESM.
-*/

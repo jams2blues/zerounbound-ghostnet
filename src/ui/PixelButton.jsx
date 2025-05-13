@@ -1,18 +1,21 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/ui/PixelButton.jsx
-  Summary: NES-style button now using PixeloidSans
+  Summary: 8‑bit button with stronger visual contrast on all themes
 */
 
+/*──────── imports ────────*/
 import styled, { css } from 'styled-components';
 
 const border = css`
   border:2px solid var(--zu-fg);
-  box-shadow:0 0 0 2px var(--zu-bg),4px 4px 0 0 var(--zu-bg);
+  box-shadow:
+    0 0 0 2px var(--zu-bg),
+    4px 4px 0 0 var(--zu-bg);
 `;
 
-const PixelButton = styled.button.attrs(({ as })=>({
-  tabIndex:0,
-  role: as==='a'?'link':undefined,
+const PixelButton = styled.button.attrs(({ as }) => ({
+  tabIndex: 0,
+  role: as === 'a' ? 'link' : undefined,
 }))`
   ${border};
   display:inline-block;
@@ -20,14 +23,14 @@ const PixelButton = styled.button.attrs(({ as })=>({
   font:700 1rem/1 'PixeloidSans',monospace;
   text-transform:uppercase;
   background:var(--zu-accent);
-  color:var(--zu-fg);
+  color:#000;                         /* always readable on accent */
   cursor:pointer;
   user-select:none;
-  transition:transform 80ms;
+  transition:transform 80ms,filter 80ms;
 
-  &:hover { background:var(--zu-accent-hover); }
-  &:active{ transform:translateY(2px); box-shadow:0 0 0 2px var(--zu-bg); }
-  &:focus { outline:none; box-shadow:0 0 0 2px var(--zu-bg),0 0 0 4px #ff2d2d; }
+  &:hover   { background:var(--zu-accent-hover); }
+  &:active  { transform:translateY(2px); box-shadow:0 0 0 2px var(--zu-bg); }
+  &:focus   { outline:none; box-shadow:0 0 0 2px #fff,0 0 0 4px #ff2d2d; }
 
   &[disabled]{
     filter:grayscale(1);
@@ -39,6 +42,6 @@ const PixelButton = styled.button.attrs(({ as })=>({
 export default PixelButton;
 
 /* What changed & why
-   • Re-pointed font to PixeloidSans and replaced hard #fff/#000 colours
-     with CSS vars for dark/light consistency.
+   • Sets text colour to #000 to guarantee ≥4.5:1 contrast on every accent shade
+     (neon‑cyan, orange, etc.). Accent colours remain theme‑controlled CSS vars.
 */
