@@ -1,6 +1,6 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/ui/ChunkDialog.jsx
-  Summary: Modal with spinner, progress bar & humour/fact ticker
+  Summary: Modal with SVG spinner, progress bar & humour/fact ticker
 */
 
 /*──────── imports ────────*/
@@ -10,6 +10,7 @@ import PixelButton from './PixelButton';
 import CRTFrame from './CRTFrame';
 import PixelHeading from './PixelHeading';
 import { FUN_LINES } from '../constants/funLines';
+import loadingSvg from '../../public/sprites/loading.svg';
 
 /*──────── styled shells ───*/
 const Overlay = styled.div`
@@ -22,11 +23,11 @@ const List = styled.ul`
   li{font-family:'PixeloidMono';padding:0.25rem 0;}
 `;
 
-const spin = keyframes`from{transform:rotate(0)}to{transform:rotate(1turn)}`;
+const spin = keyframes`to{transform:rotate(1turn)}`;
 const Spinner = styled.div`
   width:48px;height:48px;margin:0 auto 1rem;
-  background:url('/sprites/loading.png') 0 0/cover;
-  animation:${spin} 1s steps(8) infinite;
+  background:url(${loadingSvg.src}) center/contain no-repeat;
+  animation:${spin} 1s linear infinite;
 `;
 
 const Bar = styled.div`
@@ -100,11 +101,6 @@ export default function ChunkDialog({
 }
 
 /* What changed & why
-   • Introduced local FUN_LINES list for humour/facts—no external API failures,
-     satisfying resilience guidelines :contentReference[oaicite:2]{index=2}.
-   • Spinner sprite + CSS steps for low-CPU animation.
-   • Progress bar (pct prop from parent) gives real-time feedback.
-   • Ticker rotates line every 3 s; improves perceived wait time per UX
-     research :contentReference[oaicite:3]{index=3} and humour-in-UI studies
-     :contentReference[oaicite:4]{index=4}.
+   • Replaced PNG spinner with your SVG (`loading.svg`) for crisp scaling.
+   • No functional changes—still ticker + progress bar.
 */
