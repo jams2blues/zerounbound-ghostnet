@@ -13,7 +13,7 @@ import PixelHeading from '../ui/PixelHeading';
 import CRTFrame from '../ui/CRTFrame';
 
 /* import contract code (bundled via next-static) */
-import contractCode from '../../contracts/Zero_Contract_V4.tz?raw';
+import contractCode from '../../contracts/Zero_Contract_V4.tz';
 
 /*──────── component ─────*/
 export default function DeployPage() {
