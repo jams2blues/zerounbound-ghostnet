@@ -1,6 +1,6 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/ui/ChunkDialog.jsx
-  Summary: Modal with SVG spinner, progress bar & humour/fact ticker
+  Summary: Modal with spinner, live progress bar & humour ticker
 */
 
 /*──────── imports ────────*/
@@ -10,7 +10,6 @@ import PixelButton from './PixelButton';
 import CRTFrame from './CRTFrame';
 import PixelHeading from './PixelHeading';
 import { FUN_LINES } from '../constants/funLines';
-import loadingSvg from '../../public/sprites/loading.svg';
 
 /*──────── styled shells ───*/
 const Overlay = styled.div`
@@ -23,11 +22,11 @@ const List = styled.ul`
   li{font-family:'PixeloidMono';padding:0.25rem 0;}
 `;
 
-const spin = keyframes`to{transform:rotate(1turn)}`;
+const spin = keyframes`from{transform:rotate(0)}to{transform:rotate(1turn)}`;
 const Spinner = styled.div`
   width:48px;height:48px;margin:0 auto 1rem;
-  background:url(${loadingSvg.src}) center/contain no-repeat;
-  animation:${spin} 1s linear infinite;
+  background:url('/sprites/loading.svg') center/contain no-repeat;
+  animation:${spin} 1s steps(8) infinite;
 `;
 
 const Bar = styled.div`
@@ -35,7 +34,7 @@ const Bar = styled.div`
   &::before{
     content:'';display:block;height:100%;background:var(--zu-accent);
     width:${({ pct }) => pct}%;
-    transition:width .3s linear;
+    transition:width .4s ease;
   }
 `;
 
@@ -101,6 +100,6 @@ export default function ChunkDialog({
 }
 
 /* What changed & why
-   • Replaced PNG spinner with your SVG (`loading.svg`) for crisp scaling.
-   • No functional changes—still ticker + progress bar.
+   • Now receives `progress` prop (0-100) for live confirmation bar.
+   • Spinner switched to SVG; keeps CSS steps.
 */
