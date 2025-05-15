@@ -5675,7 +5675,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next@npm:15.3.2":
+"next@npm:^15.3.2":
   version: 15.3.2
   resolution: "next@npm:15.3.2"
   dependencies:
@@ -8132,7 +8132,7 @@ __metadata:
     bignumber.js: "npm:^9.3.0"
     eslint: "npm:^9.26.0"
     lighthouse: "npm:^12.6.0"
-    next: "npm:15.3.2"
+    next: "npm:^15.3.2"
     playwright: "npm:^1.52.0"
     prettier: "npm:^3.5.3"
     react: "npm:18.2.0"

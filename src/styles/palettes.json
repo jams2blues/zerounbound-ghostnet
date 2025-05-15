@@ -1,0 +1,9 @@
+{
+  "arcade-dark":   { "--zu-bg":"#0d0d0d","--zu-bg-alt":"#141414","--zu-fg":"#d0d0d0","--zu-heading":"#ffffff","--zu-accent":"#2d2dff","--zu-accent-hover":"#5353ff","--zu-accent-sec":"#ff0078","--zu-accent-sec-hover":"#ff45a6" },
+  "arcade-light":  { "--zu-bg":"#fafafa","--zu-bg-alt":"#e7e7e7","--zu-fg":"#222222","--zu-heading":"#111111","--zu-accent":"#0047ff","--zu-accent-hover":"#326aff","--zu-accent-sec":"#c400ff","--zu-accent-sec-hover":"#e243ff" },
+  "neon-dark":     { "--zu-bg":"#050013","--zu-bg-alt":"#120038","--zu-fg":"#e5e5ff","--zu-heading":"#ff5cf4","--zu-accent":"#00e5ff","--zu-accent-hover":"#24ffff","--zu-accent-sec":"#ff00c8","--zu-accent-sec-hover":"#ff4ade" },
+  "pastel-light":  { "--zu-bg":"#f0f8f0","--zu-bg-alt":"#e0efe0","--zu-fg":"#2c3e30","--zu-heading":"#1b2b20","--zu-accent":"#9cdaff","--zu-accent-hover":"#b8e6ff","--zu-accent-sec":"#ff9cdc","--zu-accent-sec-hover":"#ffb8e8" },
+  "ocean-dark":    { "--zu-bg":"#00161e","--zu-bg-alt":"#002530","--zu-fg":"#c9e7f1","--zu-heading":"#e8ffff","--zu-accent":"#00a4ff","--zu-accent-hover":"#33b7ff","--zu-accent-sec":"#ff7300","--zu-accent-sec-hover":"#ff9740" },
+  "terminal-dark": { "--zu-bg":"#000000","--zu-bg-alt":"#050505","--zu-fg":"#33ff33","--zu-heading":"#ffcc00","--zu-accent":"#33ff33","--zu-accent-hover":"#66ff66","--zu-accent-sec":"#ff3333","--zu-accent-sec-hover":"#ff6666" },
+  "sunset-dark":   { "--zu-bg":"#1a0000","--zu-bg-alt":"#330303","--zu-fg":"#ffd9b3","--zu-heading":"#ffeedd","--zu-accent":"#ff5e00","--zu-accent-hover":"#ff8524","--zu-accent-sec":"#d600ff","--zu-accent-sec-hover":"#e642ff" }
+}

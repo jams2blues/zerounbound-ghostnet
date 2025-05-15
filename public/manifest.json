@@ -1,0 +1,26 @@
+{
+  "name": "Zero Unbound — ZeroContract Studio",
+  "short_name": "ZeroUnbound",
+  "description": "8-bit, fully on-chain NFT studio for ZeroContract V4 — no IPFS, no indexers.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#ff00c8",
+  "icons": [
+    {
+      "src": "/sprites/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "type": "image/x-icon",
+      "sizes": "48x48"
+    }
+  ],
+  "screenshots": [
+    { "src": "/sprites/logo.svg", "type": "image/svg+xml", "label": "Launcher icon" }
+  ],
+  "lang": "en"
+}

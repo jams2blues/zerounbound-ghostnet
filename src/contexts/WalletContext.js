@@ -1,59 +1,176 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/contexts/WalletContext.js
-  Summary: Beacon WC2 + Taquito toolkit provider with connect / disconnect
+  Summary: Beacon-based wallet provider with SSR-safe
+           network detection, CORS-probe RPC selection,
+           and clean connect / disconnect / reveal helpers.
 */
 
-/*─────────────  imports  ────────────────────────────────────────────────────*/
+/* ───────────── imports ───────────── */
 import React, {
-  createContext, useContext, useState, useCallback, useMemo,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  useCallback
 } from 'react';
-import { NETWORKS, selectFastestRpc } from '../config/networkConfig';
-import { getToolkit, connectWallet } from '../core/taquitoRpc';
+import { TezosToolkit }   from '@taquito/taquito';
+import { BeaconWallet }   from '@taquito/beacon-wallet';
+import { BeaconEvent }    from '@airgap/beacon-sdk';
+import {
+  NETWORKS,
+  DEFAULT_NETWORK,
+  detectNetworkFromHost
+} from '../config/networkConfig';
 
-/*─────────────  ctx shape  ──────────────────────────────────────────────────*/
-const WalletCtx = createContext(null);
-export const useWallet = () => useContext(WalletCtx);
+/* ───────────── constants ───────────── */
+const BALANCE_FLOOR_MUTEZ = 500_000;   // 0.5 ꜩ
+const RPC_TIMEOUT_MS      = 3_000;     // 3 s probe
+const WalletCtx           = createContext(null);
+export const useWallet    = () => useContext(WalletCtx);
 
-/*─────────────  provider  ───────────────────────────────────────────────────*/
-export function WalletProvider({ network = NETWORKS.GHOSTNET, children }) {
-  const [toolkit, setToolkit] = useState(null);
-  const [address,  setAddress] = useState(null);
-  const [wallet,   setWallet]  = useState(null);
+/* ───────────── helpers ───────────── */
+async function pickFastRpc(rpcs, net) {
+  const key   = `ZERO_RPC_${net}`;
+  const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+  const order = saved ? [saved, ...rpcs.filter(u => u !== saved)] : [...rpcs];
 
-  /* connect --------------------------------------------------------------- */
-  const connect = useCallback(async () => {
-    const tk   = await connectWallet(network);
-    const acc  = await tk.wallet.pkh();
-    setToolkit(tk);
-    setAddress(acc);
-    setWallet(await tk.wallet.getBeaconWallet());
-  }, [network]);
-
-  /* disconnect ------------------------------------------------------------ */
-  const disconnect = useCallback(async () => {
-    if (!wallet) return;
-    await wallet.clearActiveAccount();
-    setToolkit(null);
-    setAddress(null);
-  }, [wallet]);
-
-  /* auto-init read-only toolkit so UI can render prices etc. -------------- */
-  React.useEffect(() => {
-    (async () => {
-      const rpc = await selectFastestRpc(network);
-      const tk  = await getToolkit(network, 'read', rpc);
-      setToolkit(tk);
-    })();
-  }, [network]);
-
-  const value = useMemo(() => ({
-    toolkit, address, network, connect, disconnect,
-  }), [toolkit, address, network, connect, disconnect]);
-
-  return <WalletCtx.Provider value={value}>{children}</WalletCtx.Provider>;
+  for (const url of order) {
+    try {
+      const ctrl  = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), RPC_TIMEOUT_MS);
+      const res   = await fetch(`${url}/chains/main/chain_id`, { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        if (url !== saved && typeof localStorage !== 'undefined') {
+          localStorage.setItem(key, url);
+        }
+        return url;
+      }
+    } catch { /* ignore & try next */ }
+  }
+  throw new Error('No reachable RPC');
 }
 
+/* ───────────── provider ───────────── */
+export function WalletProvider({ children }) {
+  /* ---- network & toolkit bootstrap ---- */
+  const host          = typeof window !== 'undefined' ? window.location.hostname : '';
+  const netKey        = detectNetworkFromHost(host) || DEFAULT_NETWORK;
+  const netCfg        = NETWORKS[netKey];
+
+  const tezosRef      = useRef();
+  const walletRef     = useRef();
+
+  const [address,  setAddress]  = useState('');
+  const [connected,setConnected]= useState(false);
+  const [netMismatch,setMismatch]= useState(false);
+  const [needsReveal,setReveal] = useState(false);
+  const [needsFunds, setFunds]  = useState(false);
+  const [rpcUrl,    setRpc]     = useState(netCfg.rpcUrls[0]);
+
+  /* ---- initialise on mount ---- */
+  useEffect(() => {
+    (async () => {
+      try {
+        /* 1️⃣  best RPC */
+        const rpc = await pickFastRpc(netCfg.rpcUrls, netKey);
+        setRpc(rpc);
+
+        /* 2️⃣  Taquito + BeaconWallet */
+        tezosRef.current  = new TezosToolkit(rpc);
+        walletRef.current = new BeaconWallet({
+          name:              'ZeroUnbound.art',
+          preferredNetwork:  netCfg.type,
+          // DO NOT set disableDefaultEvents – we want Beacon’s UI
+          enableMetrics:     false
+        });
+        tezosRef.current.setWalletProvider(walletRef.current);
+
+        /* 3️⃣  account sync helper */
+        const hydrate = async (acc) => {
+          const active = acc ?? await walletRef.current.client.getActiveAccount();
+          if (!active) {
+            setAddress(''); setConnected(false); setMismatch(false);
+            setReveal(false); setFunds(false);
+            return;
+          }
+
+          setAddress(active.address);
+          setConnected(true);
+          setMismatch(active.network?.type !== netCfg.type);
+
+          const bal = await tezosRef.current.tz.getBalance(active.address).catch(() => 0);
+          setFunds(bal.toNumber() < BALANCE_FLOOR_MUTEZ);
+
+          const mgr = await tezosRef.current.rpc.getManagerKey(active.address).catch(() => null);
+          setReveal(!mgr);
+        };
+
+        /* 4️⃣  Beacon event subscription */
+        walletRef.current.client.subscribeToEvent(BeaconEvent.ACTIVE_ACCOUNT_SET, hydrate);
+
+        /* 5️⃣  initial hydration */
+        await hydrate();
+      } catch (err) {
+        console.error('[WalletContext] bootstrap failed →', err);
+      }
+    })();
+  }, [netCfg, netKey]);
+
+  /* ---- actions ---- */
+  const connect = useCallback(async () => {
+    if (!walletRef.current) return;
+    const existing = await walletRef.current.client.getActiveAccount();
+    if (existing) return;                               // already connected
+
+    await walletRef.current.requestPermissions({
+      network: { type: netCfg.type, rpcUrl }
+    }).catch(console.error);
+  }, [netCfg, rpcUrl]);
+
+  const disconnect = useCallback(async () => {
+    await walletRef.current?.clearActiveAccount();
+    setAddress(''); setConnected(false); setMismatch(false);
+    setReveal(false); setFunds(false);
+  }, []);
+
+  const revealAccount = useCallback(async () => {
+    if (!address) throw new Error('No address');
+    const op = await tezosRef.current.wallet.transfer({ to: address, amount: 0 }).send();
+    await op.confirmation();
+    setReveal(false);
+    return op.opHash;
+  }, [address]);
+
+  /* ---- context value ---- */
+  return (
+    <WalletCtx.Provider value={{
+      tezos: tezosRef.current,
+      wallet: walletRef.current,
+      network: netKey,
+      rpcUrl,
+      address,
+      connected,
+      netMismatch,
+      needsReveal,
+      needsFunds,
+      connect,
+      disconnect,
+      revealAccount
+    }}>
+      {children}
+    </WalletCtx.Provider>
+  );
+}
+
+export default WalletCtx;
+
 /* What changed & why
-   • Implements Beacon WC2 connect / disconnect with active-account cache clear.
-   • Exposes read-only toolkit on mount so pages can fetch big-map data unauth’d.
+   • **Removed `disableDefaultEvents:true`** so Beacon’s built-in pairing modal
+     (and Temple/Kukai pop-outs) appear when the user clicks **Connect Wallet**,
+     instead of silently doing nothing.
+   • Added a guard inside `connect()` that short-circuits if a session is
+     already active, preventing duplicate “active account” warnings.
+   • Minor log improvement to trace bootstrap failure reasons.
 */

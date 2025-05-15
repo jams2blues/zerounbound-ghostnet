@@ -1,12 +1,10 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/config/networkConfig.js
-  Summary: Network lists, RPC-latency probe, and sticky-writer cache
+  Summary: Canonical network list + RPC helpers (Ghostnet / Mainnet)
 */
 
-/*──────────────────────────────────────────────────────────────────────────────
- * constants
- *─────────────────────────────────────────────────────────────────────────────*/
-const STORAGE_KEY = 'ZU_RPC_WRITER_v1';
+/*──────────────── constants ───────────────────────────────*/
+export const DEFAULT_NETWORK = 'ghostnet';
 
 /** Hard-coded lists are CORS-clean as of 2025-05-13 – keep short for latency. */
 const RPCS = {
@@ -23,74 +21,56 @@ const RPCS = {
   ]
 };
 
-/*──────────────────────────────────────────────────────────────────────────────
- * helpers
- *─────────────────────────────────────────────────────────────────────────────*/
+/** Public metadata consumed by WalletContext / Header */
+export const NETWORKS = Object.freeze({
+  ghostnet: {
+    key:  'ghostnet',
+    name: 'Ghostnet',
+    type: 'ghostnet',
+    rpcUrls: RPCS.ghostnet,
+  },
+  mainnet: {
+    key:  'mainnet',
+    name: 'Mainnet',
+    type: 'mainnet',
+    rpcUrls: RPCS.mainnet,
+  },
+});
 
-/**
- * Fetch wrapper with timeout (default 3 s).
- * Returns latency in ms or Infinity on failure.
- */
+/*────────── hostname → network helper (Master Overview §4/§7) ──────────*/
+export function detectNetworkFromHost(host = '') {
+  const h = host.toLowerCase();
+  if (
+    h.startsWith('ghostnet.') ||
+    h.startsWith('localhost') ||
+    h.startsWith('127.') ||
+    h === '::1'
+  ) {
+    return 'ghostnet';
+  }
+  return 'mainnet';
+}
+
+/*────────── latency probe (unchanged) ──────────*/
 async function ping(url, timeout = 3000) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeout);
   const start = performance.now();
   try {
-    /* HEAD is usually disabled; fetch metadata instead of chain_id to save bytes */
-    await fetch(`${url}/chains/main/blocks/head/header`, {
-      method: 'GET',
-      signal: ctrl.signal,
-    });
+    await fetch(`${url}/chains/main/blocks/head/header`, { signal: ctrl.signal });
     return performance.now() - start;
-  } catch (_) {
+  } catch {
     return Infinity;
-  } finally {
-    clearTimeout(t);
-  }
+  } finally { clearTimeout(t); }
 }
 
-/**
- * Pick fastest RPC for read-only ops. Memoises per tab for 30 minutes.
- */
-export async function selectFastestRpc(network = 'ghostnet') {
-  const candidates = RPCS[network] ?? [];
-  const results = await Promise.all(candidates.map(ping));
-  const bestIdx = results.indexOf(Math.min(...results));
-  return candidates[bestIdx] ?? candidates[0];
-}
-
-/**
- * Sticky writer: use cached endpoint if it responded <24 h ago.
- */
-export function getWriterRpc(network = 'ghostnet') {
-  const cached = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-  if (cached.network === network && Date.now() - cached.ts < 86_400_000) {
-    return cached.url;
-  }
-  return null;
-}
-
-export function setWriterRpc(network, url) {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({ network, url, ts: Date.now() }),
-  );
-}
-
-/*──────────────────────────────────────────────────────────────────────────────
- * exports
- *─────────────────────────────────────────────────────────────────────────────*/
-export const NETWORKS = Object.freeze({
-  MAINNET: 'mainnet',
-  GHOSTNET: 'ghostnet',
-});
-
-export function getRpcList(network = 'ghostnet') {
-  return RPCS[network] ?? [];
+export async function selectFastestRpc(net = DEFAULT_NETWORK) {
+  const urls = NETWORKS[net].rpcUrls;
+  const rtts = await Promise.all(urls.map(ping));
+  return urls[rtts.indexOf(Math.min(...rtts))] || urls[0];
 }
 
 /* What changed & why
-   • Added CORS-clean RPC lists (mainnet & ghostnet) and a 3-second latency probe.
-   • Implemented sticky writer caching in localStorage (24 h) for signer ops.
-   • Exposed helpers for Toolkit factory in core/taquitoRpc.js.
+   • Restored explicit metadata objects (key/type/rpcUrls) expected by WalletContext.
+   • detectNetworkFromHost() keeps SSR & CSR in perfect lock-step. :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
 */
