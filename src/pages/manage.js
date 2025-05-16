@@ -10,7 +10,6 @@ import PixelInput from '../ui/PixelInput';
 import PixelButton from '../ui/PixelButton';
 import CRTFrame from '../ui/CRTFrame';
 import ContractCarousel from '../ui/ContractCarousel';
-import { getToolkit } from '../core/taquitoRpc';
 import { getContractMetadata } from '../core/views';
 
 export default function Manage() {
