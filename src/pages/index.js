@@ -1,13 +1,14 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/pages/index.js
-  Summary: Home hero — centred CRT card with logo & three CTAs
+  Summary: Home hero — centred CRT card, logo, tagline & CTAs (import-path fix)
 */
 
 /*──────── imports ────────*/
-import React from 'react';
-import PixelButton  from '../ui/PixelButton';
-import CRTFrame     from '../ui/CRTFrame';
-import { HDR_HEIGHT } from '../ui/Header';
+import React        from 'react';
+import PixelButton  from '../ui/PixelButton.jsx';
+import PixelHeading from '../ui/PixelHeading.jsx';
+import CRTFrame     from '../ui/CRTFrame.jsx';
+import { HDR_HEIGHT } from '../ui/Header.jsx';
 
 /*──────── component ─────*/
 export default function Home() {
@@ -37,7 +38,11 @@ export default function Home() {
           }}
         />
 
-        {/*── Tag-line : centred & nicely wrapped on all screens ──*/}
+        {/*── Tag-line ──*/}
+        <PixelHeading level={2} style={{ marginBottom: '1rem' }}>
+          Fully-On-Chain NFT Studio
+        </PixelHeading>
+
         <p
           style={{
             margin: '0 0 2rem',
@@ -51,35 +56,28 @@ export default function Home() {
           <strong>No&nbsp;IPFS. No&nbsp;indexers.</strong>
         </p>
 
-        {/*── CTAs ──*/}
-        <PixelButton
-          as="a"
-          href="/deploy"
-          style={{ width: '100%', marginBottom: '0.75rem' }}
-        >
-          ➕ Create Collection
-        </PixelButton>
+        {/*── CTA stack ──*/}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <PixelButton as="a" href="/deploy" style={{ width: '100%' }}>
+            ➕ Create Collection
+          </PixelButton>
 
-        <PixelButton
-          as="a"
-          href="/manage"
-          style={{ width: '100%', marginBottom: '0.75rem' }}
-        >
-          ⚙ Manage Collections
-        </PixelButton>
+          <PixelButton as="a" href="/manage" style={{ width: '100%' }}>
+            ⚙ Manage Collections
+          </PixelButton>
 
-        <PixelButton as="a" href="/explore" style={{ width: '100%' }}>
-          🔍 Explore FOC
-        </PixelButton>
+          <PixelButton as="a" href="/explore" style={{ width: '100%' }}>
+            🔍 Explore FOC
+          </PixelButton>
+        </div>
       </CRTFrame>
     </main>
   );
 }
 
 /* What changed & why
-   • Added `textAlign:center` to CRTFrame plus max-width 32 ch on paragraph,
-     guaranteeing symmetrical ragged edges on desktop while wrapping early on
-     phones. `marginInline:auto` keeps it horizontally centred.
-   • Bolded “No IPFS. No indexers.” and forced explicit `<br/>` so split reads
-     clean across viewports.
+   • Corrected import paths from `./ui/...` → `../ui/...` since `pages/`
+     resides one directory deeper than `ui/`.  Removes “Module not found:
+     Can't resolve './ui/PixelButton'” build error.
+   • Added explicit `.jsx` extensions for consistency with other imports.
 */

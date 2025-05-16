@@ -1,51 +1,46 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: next.config.js
-  Summary: Next-JS config — adds `.tz` raw-loader + keeps styled-components SSR
+  Summary: ESM-style Next config — styled-components SSR, .tz raw import,
+           **browser fallbacks for Node built-ins** (fs/crypto/path) used by
+           Beacon-UI so the header can render.
 */
 
-/* eslint-disable */
-module.exports = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   reactStrictMode: true,
 
-  /* SWC options *****************************************************/
-  compiler: {
-    styledComponents: {
-      ssr: true,
-      displayName: false,
-      minify: true,
-    },
-  },
+  /* styled-components handled by SWC */
+  compiler: { styledComponents: { ssr: true } },
 
-  /* Images (none for now) *******************************************/
-  images: { domains: [] },
-
-  /* Redirects (legacy STWWA path) ***********************************/
-  redirects: async () => [
-    { source: '/savetheworldwithart/:path*', destination: '/:path*', permanent: true },
-  ],
-
-  /* Custom webpack **************************************************/
-  webpack: (config, { isServer }) => {
-    /* 1 ▸ allow importing .tz (Michelson) as raw string
-          e.g.  import contractCode from '../../contracts/Zero_Contract_V4.tz';
-          Works both client & server, avoids Vercel build crash. */
+  /* Next 15 → webpack 5 customisation */
+  webpack(config) {
+    /* ─── Michelson .tz files as raw string ───────────── */
     config.module.rules.push({
-      test: /\.tz$/i,
-      type: 'asset/source',      // built-in Webpack 5 raw string
+      test: /\.tz$/,
+      type: 'asset/source',
     });
 
-    /* 2 ▸ polyfill “fs” on client — avoid Taquito dynamic import errors */
-    if (!isServer) {
-      config.resolve.fallback = { ...config.resolve.fallback, fs: false };
-    }
+    /* ─── Beacon-UI (browser) expects “fs”, “path”, etc. ─*/
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      fs:    false,
+      path:  false,
+      crypto:false,
+      stream:false,
+    };
+
     return config;
   },
+
+  images: { domains: [] },
 };
 
+export default nextConfig;
+
 /* What changed & why
-   • Added webpack rule `{ test:/\.tz$/, type:'asset/source' }` so Vercel
-     treats Michelson contract files as plain text. Fixes parse error:
-     “Module parse failed: Unexpected token (…)”.
-   • No extra dependency; uses Webpack 5 core ‘asset/source’.
-   • Retains styled-components SSR and previous redirects.
+   • Added `resolve.fallback` entries so webpack replaces Node built-ins
+     (`fs`, `path`, `crypto`, `stream`) with empty mocks in the browser.
+     @airgap/beacon-ui (pulled by BeaconWallet) references them, which was
+     breaking the bundle and preventing Header (wallet) from loading.
+   • Rest of config unchanged (ESM export, .tz loader, SC SSR).
 */

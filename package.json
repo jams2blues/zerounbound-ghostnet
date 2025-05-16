@@ -1,37 +1,41 @@
 {
   "name": "zerounbound-ghostnet",
-  "version": "0.1.0",
+  "version": "1.4.1",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start -p 3000",
-    "lint": "eslint --ext .js,.jsx src",
-    "test": "vitest run"
+    "dev": "node scripts/ensureDevManifest.js && node scripts/startDev.js",
+    "build": "node scripts/generateManifest.js && node scripts/updatePkgName.js && next build",
+    "start": "next start",
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx src --max-warnings 0",
+    "test": "playwright test"
   },
   "dependencies": {
     "@airgap/beacon-sdk": "4.5.2",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
+    "@emotion/server": "^11.11.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.1.0",
     "@mui/material": "^7.1.0",
-    "@taquito/beacon-wallet": "^21.0.4",
-    "@taquito/taquito": "^21.0.4",
-    "bignumber.js": "^9.3.0",
-    "next": "^15.3.2",
+    "@taquito/beacon-wallet": "21.0.4",
+    "@taquito/taquito": "21.0.4",
+    "clsx": "^1.2.1",
+    "next": "15.3.2",
+    "next-pwa": "^5.6.0",
+    "playwright": "^1.52.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "styled-components": "^6.1.18"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^20.11.30",
     "@types/react": "19.1.4",
+    "@types/styled-components": "^5.1.26",
     "eslint": "^9.26.0",
-    "lighthouse": "^12.6.0",
-    "playwright": "^1.52.0",
-    "prettier": "^3.5.3",
-    "typescript": "5.8.3",
-    "vitest": "^3.1.3"
+    "eslint-config-next": "^15.3.2",
+    "typescript": "5.8.3"
   },
   "resolutions": {
     "@stablelib/nacl": "1.0.4",

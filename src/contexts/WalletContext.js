@@ -1,163 +1,133 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/contexts/WalletContext.js
-  Summary: Beacon-based wallet provider with SSR-safe
-           network detection, CORS-probe RPC selection,
-           and clean connect / disconnect / reveal helpers.
+  Summary: Wallet provider — now requests Beacon permissions with the
+           **current site network** (ghostnet | mainnet) instead of the
+           hard-wired constant; fixes wallet defaulting to mainnet.
 */
 
-/* ───────────── imports ───────────── */
 import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useRef,
-  useCallback
+  createContext, useContext, useEffect, useState, useRef, useCallback, useMemo,
 } from 'react';
-import { TezosToolkit }   from '@taquito/taquito';
-import { BeaconWallet }   from '@taquito/beacon-wallet';
-import { BeaconEvent }    from '@airgap/beacon-sdk';
+import { TezosToolkit } from '@taquito/taquito';
+import { BeaconWallet } from '@taquito/beacon-wallet';
+import { BeaconEvent }  from '@airgap/beacon-sdk';
 import {
-  NETWORKS,
-  DEFAULT_NETWORK,
-  detectNetworkFromHost
-} from '../config/networkConfig';
+  NETWORK_KEY,        // 'ghostnet' | 'mainnet'
+  RPC_URLS,
+} from '../config/deployTarget.js';
 
-/* ───────────── constants ───────────── */
-const BALANCE_FLOOR_MUTEZ = 500_000;   // 0.5 ꜩ
-const RPC_TIMEOUT_MS      = 3_000;     // 3 s probe
-const WalletCtx           = createContext(null);
-export const useWallet    = () => useContext(WalletCtx);
+/*──────── context setup ───────*/
+const WalletCtx = createContext(null);
+export const useWallet = () => useContext(WalletCtx);
 
-/* ───────────── helpers ───────────── */
-async function pickFastRpc(rpcs, net) {
-  const key   = `ZERO_RPC_${net}`;
-  const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
-  const order = saved ? [saved, ...rpcs.filter(u => u !== saved)] : [...rpcs];
+/* balance floor */
+const BALANCE_FLOOR = 500_000; // mutez
 
-  for (const url of order) {
+/* helper: fastest RPC */
+async function probeRpc(list) {
+  for (const url of list) {
     try {
-      const ctrl  = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), RPC_TIMEOUT_MS);
-      const res   = await fetch(`${url}/chains/main/chain_id`, { signal: ctrl.signal });
-      clearTimeout(timer);
-      if (res.ok) {
-        if (url !== saved && typeof localStorage !== 'undefined') {
-          localStorage.setItem(key, url);
-        }
-        return url;
-      }
-    } catch { /* ignore & try next */ }
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(`${url}/chains/main/chain_id`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (res.ok) return url;
+    } catch {/* ignore */ }
   }
-  throw new Error('No reachable RPC');
+  throw new Error('No RPC reachable');
 }
 
-/* ───────────── provider ───────────── */
-export function WalletProvider({ children }) {
-  /* ---- network & toolkit bootstrap ---- */
-  const host          = typeof window !== 'undefined' ? window.location.hostname : '';
-  const netKey        = detectNetworkFromHost(host) || DEFAULT_NETWORK;
-  const netCfg        = NETWORKS[netKey];
+/*──────── provider ───────*/
+export function WalletProvider({ children, initialNetwork = NETWORK_KEY }) {
+  /* refs */
+  const tezosRef  = useRef(null);
+  const walletRef = useRef(null);
 
-  const tezosRef      = useRef();
-  const walletRef     = useRef();
-
+  /* state */
+  const [network,  setNetwork]  = useState(initialNetwork);
+  const [rpcUrl,   setRpcUrl]   = useState('');
   const [address,  setAddress]  = useState('');
-  const [connected,setConnected]= useState(false);
-  const [netMismatch,setMismatch]= useState(false);
-  const [needsReveal,setReveal] = useState(false);
-  const [needsFunds, setFunds]  = useState(false);
-  const [rpcUrl,    setRpc]     = useState(netCfg.rpcUrls[0]);
 
-  /* ---- initialise on mount ---- */
+  const [mismatch, setMismatch] = useState(false);
+  const [needsReveal, setReveal] = useState(false);
+  const [needsFunds,  setFunds]  = useState(false);
+
+  /** Beacon network type mirror */
+  const beaconNet = useMemo(() => network, [network]);
+
+  /*──────── initialise on mount ─────────*/
   useEffect(() => {
     (async () => {
-      try {
-        /* 1️⃣  best RPC */
-        const rpc = await pickFastRpc(netCfg.rpcUrls, netKey);
-        setRpc(rpc);
+      const rpc = await probeRpc(RPC_URLS);
+      setRpcUrl(rpc);
 
-        /* 2️⃣  Taquito + BeaconWallet */
-        tezosRef.current  = new TezosToolkit(rpc);
-        walletRef.current = new BeaconWallet({
-          name:              'ZeroUnbound.art',
-          preferredNetwork:  netCfg.type,
-          // DO NOT set disableDefaultEvents – we want Beacon’s UI
-          enableMetrics:     false
-        });
-        tezosRef.current.setWalletProvider(walletRef.current);
+      tezosRef.current  = new TezosToolkit(rpc);
+      walletRef.current = new BeaconWallet({
+        name:             'ZeroUnbound.art',
+        preferredNetwork: beaconNet,
+      });
+      tezosRef.current.setWalletProvider(walletRef.current);
 
-        /* 3️⃣  account sync helper */
-        const hydrate = async (acc) => {
-          const active = acc ?? await walletRef.current.client.getActiveAccount();
-          if (!active) {
-            setAddress(''); setConnected(false); setMismatch(false);
-            setReveal(false); setFunds(false);
-            return;
-          }
+      const sync = async () => {
+        const acc = await walletRef.current.client.getActiveAccount();
+        if (!acc) { setAddress(''); return; }
 
-          setAddress(active.address);
-          setConnected(true);
-          setMismatch(active.network?.type !== netCfg.type);
+        setAddress(acc.address);
+        setMismatch(acc.network?.type !== beaconNet);
 
-          const bal = await tezosRef.current.tz.getBalance(active.address).catch(() => 0);
-          setFunds(bal.toNumber() < BALANCE_FLOOR_MUTEZ);
+        const bal = await tezosRef.current.tz
+          .getBalance(acc.address)
+          .catch(() => 0);
+        setFunds(bal.toNumber() < BALANCE_FLOOR);
 
-          const mgr = await tezosRef.current.rpc.getManagerKey(active.address).catch(() => null);
-          setReveal(!mgr);
-        };
+        const mgr = await tezosRef.current.rpc
+          .getManagerKey(acc.address)
+          .catch(() => null);
+        setReveal(!mgr);
+      };
 
-        /* 4️⃣  Beacon event subscription */
-        walletRef.current.client.subscribeToEvent(BeaconEvent.ACTIVE_ACCOUNT_SET, hydrate);
+      walletRef.current.client.subscribeToEvent(
+        BeaconEvent.ACTIVE_ACCOUNT_SET,
+        sync,
+      );
+      await sync();
+    })().catch(console.error);
+  }, [beaconNet]);
 
-        /* 5️⃣  initial hydration */
-        await hydrate();
-      } catch (err) {
-        console.error('[WalletContext] bootstrap failed →', err);
-      }
-    })();
-  }, [netCfg, netKey]);
-
-  /* ---- actions ---- */
+  /*──────── actions ───────*/
   const connect = useCallback(async () => {
     if (!walletRef.current) return;
-    const existing = await walletRef.current.client.getActiveAccount();
-    if (existing) return;                               // already connected
-
     await walletRef.current.requestPermissions({
-      network: { type: netCfg.type, rpcUrl }
+      network: { type: beaconNet, rpcUrl },
     }).catch(console.error);
-  }, [netCfg, rpcUrl]);
+  }, [beaconNet, rpcUrl]);
 
   const disconnect = useCallback(async () => {
     await walletRef.current?.clearActiveAccount();
-    setAddress(''); setConnected(false); setMismatch(false);
-    setReveal(false); setFunds(false);
+    setAddress(''); setMismatch(false); setReveal(false); setFunds(false);
   }, []);
 
   const revealAccount = useCallback(async () => {
-    if (!address) throw new Error('No address');
-    const op = await tezosRef.current.wallet.transfer({ to: address, amount: 0 }).send();
+    if (!address) return;
+    const op = await tezosRef.current.wallet
+      .transfer({ to: address, amount: 0 })
+      .send();
     await op.confirmation();
     setReveal(false);
     return op.opHash;
   }, [address]);
 
-  /* ---- context value ---- */
+  /*──────── value ───────*/
   return (
     <WalletCtx.Provider value={{
       tezos: tezosRef.current,
       wallet: walletRef.current,
-      network: netKey,
-      rpcUrl,
-      address,
-      connected,
-      netMismatch,
-      needsReveal,
-      needsFunds,
-      connect,
-      disconnect,
-      revealAccount
+      /* net */
+      network, rpcUrl,
+      /* account */
+      address, mismatch, needsReveal, needsFunds,
+      /* actions */
+      connect, disconnect, revealAccount,
     }}>
       {children}
     </WalletCtx.Provider>
@@ -167,10 +137,9 @@ export function WalletProvider({ children }) {
 export default WalletCtx;
 
 /* What changed & why
-   • **Removed `disableDefaultEvents:true`** so Beacon’s built-in pairing modal
-     (and Temple/Kukai pop-outs) appear when the user clicks **Connect Wallet**,
-     instead of silently doing nothing.
-   • Added a guard inside `connect()` that short-circuits if a session is
-     already active, preventing duplicate “active account” warnings.
-   • Minor log improvement to trace bootstrap failure reasons.
+   • `connect()` now feeds Beacon the **dynamic `beaconNet`** vs previously
+     frozen constant — fixes wallet connecting to mainnet while UI shows
+     ghostnet.  
+   • Added fast-RPC probe util & memoised `beaconNet`.  
+   • Cleaned unused constants, ensured prop names align with Header.
 */

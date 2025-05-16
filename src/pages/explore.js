@@ -9,7 +9,6 @@ import CRTFrame from '../ui/CRTFrame';
 import PixelHeading from '../ui/PixelHeading';
 import CollectionCard from '../ui/CollectionCard';
 import SearchBar from '../ui/SearchBar';
-import { getToolkit } from '../core/taquitoRpc';
 import { getContractMetadata } from '../core/views';
 import { idbGet, idbPut, idbGetAll } from '../core/idb';
 

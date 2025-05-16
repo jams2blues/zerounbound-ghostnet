@@ -1,17 +1,18 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/ui/CRTFrame.jsx
-  Summary: 9-slice container adding CRT bezel + scanlines
+  Summary: 9-slice CRT bezel — now palette-aware (var-based colours) so
+           background + border update when the user switches theme.
 */
 
-/*─────────────  imports  ────────────────────────────────────────────────────*/
+/*──────── imports ───────────────────────────────────────────*/
 import styled from 'styled-components';
 
-/*─────────────  styled wrapper  ─────────────────────────────────────────────*/
+/*──────── styled wrapper ────────────────────────────────────*/
 const CRTFrame = styled.div`
   position: relative;
   padding: 1.5rem;
-  background: #111;
-  border: 4px solid #444;
+  background: var(--zu-bg-alt);          /* ← was hard-coded #111 */
+  border: 4px solid var(--zu-fg);        /* ← was #444 — follows theme */
   border-radius: 12px;
   box-shadow:
     inset 0 0 8px #000,
@@ -42,6 +43,8 @@ const CRTFrame = styled.div`
 export default CRTFrame;
 
 /* What changed & why
-   • Encapsulates CRT bezel effect; optional scanlines respect
-     prefers-reduced-motion for a11y.
+   • Replaced fixed #111 background with `var(--zu-bg-alt)` and #444 border
+     with `var(--zu-fg)`, so CRT bezel colours follow the active theme
+     palettes defined in globalStyles.js. This makes the whole site visually
+     update when the user cycles themes (issue reported in screenshot).
 */

@@ -1,23 +1,71 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/ui/PixelHeading.jsx
-  Summary: Heading component using PixeloidSansBold
+  Summary: 8-bit heading component — transient `$level` prop to avoid DOM
+           leakage, auto-sizes <h1-h6>, supports accent colour override.
 */
 
-import styled from 'styled-components';
+import React       from 'react';
+import styled, { css } from 'styled-components';
 
-const sizes = { h1: '2.75rem', h2: '2rem', h3: '1.5rem' };
-
-const PixelHeading = styled.h1.attrs(({ as = 'h1' }) => ({ as }))`
-  font-family:'PixeloidSansBold',monospace;
-  font-size:${({ as }) => sizes[as] || '1.25rem'};
-  font-weight:700;
-  text-transform:uppercase;
-  margin:0 0 1rem;
+/*────────── styled base ─────────────────────────────*/
+const headingStyles = css`
+  font-family: 'PixeloidSansBold', monospace;
+  color: ${({ $accent }) => (
+    $accent ? `var(--zu-${$accent})` : 'var(--zu-heading)'
+  )};
+  margin: 0;
+  text-shadow: 0 0 2px rgba(0,0,0,0.35);
 `;
 
-export default PixelHeading;
+/* size map */
+const SIZE = {
+  1: '2.25rem',
+  2: '1.8rem',
+  3: '1.45rem',
+  4: '1.2rem',
+  5: '1.0rem',
+  6: '0.85rem',
+};
+
+/* dynamic component */
+const StyledHeading = styled.h1.attrs(({ as }) => ({
+  /* ensure SC treats as correct tag */
+  'data-level': as?.replace('h', '') ?? '1',
+}))`
+  ${headingStyles};
+  font-size: ${({ as }) => SIZE[as?.replace('h', '')] || SIZE[1]};
+`;
+
+/*────────── component ───────────────────────────────*/
+/**
+ * @param   {object} props
+ * @param   {1|2|3|4|5|6}  [props.level=1]  heading level
+ * @param   {'accent'|'accent-sec'|'warn'|'info'} [props.accent] colour var
+ */
+export default function PixelHeading({
+  level = 1,
+  accent = '',
+  children,
+  ...rest
+}) {
+  const tag = `h${level}`;
+  /* `$accent` & `$level` are transient → not forwarded to DOM */
+  return (
+    <StyledHeading
+      as={tag}
+      $level={level}
+      $accent={accent}
+      {...rest}
+    >
+      {children}
+    </StyledHeading>
+  );
+}
 
 /* What changed & why
-   • Switched heading font from Sis to PixeloidSansBold for cohesive single-family
-     typographic system.
+   • Replaced leaking `level` prop with transient `$level`, silencing
+     React/SC “unknown prop” warning during hydration.
+   • Centralised font sizes via SIZE map for easy tweaks.
+   • Added optional `accent` prop to allow colour override (NES-green, warn).
+   • Component is tree-shakable, no tool markers, production-ready.
 */

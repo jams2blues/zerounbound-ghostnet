@@ -1,76 +1,59 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/config/networkConfig.js
-  Summary: Canonical network list + RPC helpers (Ghostnet / Mainnet)
+  Summary: Thin compatibility-shim that re-exports the active network
+           constants drawn from deployTarget.js.  Older code that consumed
+           `NETWORKS`, `getRpcList()` or `selectFastestRpc()` continues to
+           work unchanged, while the single source-of-truth now lives in
+           src/config/deployTarget.js.
 */
 
-/*──────────────── constants ───────────────────────────────*/
-export const DEFAULT_NETWORK = 'ghostnet';
+import {
+  NETWORK_KEY,
+  NETWORK_TYPE,
+  NETWORK_LABEL,
+  RPC_URLS
+} from './deployTarget.js';
 
-/** Hard-coded lists are CORS-clean as of 2025-05-13 – keep short for latency. */
-const RPCS = {
-  ghostnet: [
-    'https://rpc.ghostnet.teztnets.com',      // Rapid EU+US CDN
-    'https://ghostnet.tezos.ecadinfra.com',   // ECAD Infra (May-2025 domain)
-    'https://rpc.tzkt.io/ghostnet'            // Baking Bad – high U.S. uptime
-  ],
-  mainnet: [
-    'https://prod.tcinfra.net/rpc/mainnet',   // Tezos Commons – autoscaling cluster
-    'https://mainnet.tezos.ecadinfra.com',    // ECAD Infra (primary)
-    'https://rpc.tzkt.io/mainnet',            // Baking Bad
-    'https://mainnet.smartpy.io'              // SmartPy – generous CORS
-  ]
+/*──────────────────────── constants ─────────────────────────*/
+export const DEFAULT_NETWORK = NETWORK_KEY;
+
+/** Minimal NETWORKS map (kept for legacy imports) */
+export const NETWORKS = {
+  [NETWORK_KEY]: {
+    name:     NETWORK_LABEL.toLowerCase(), // 'ghostnet' | 'mainnet'
+    type:     NETWORK_TYPE,
+    rpcUrls:  RPC_URLS.slice()             // copy to avoid mutation
+  }
 };
 
-/** Public metadata consumed by WalletContext / Header */
-export const NETWORKS = Object.freeze({
-  ghostnet: {
-    key:  'ghostnet',
-    name: 'Ghostnet',
-    type: 'ghostnet',
-    rpcUrls: RPCS.ghostnet,
-  },
-  mainnet: {
-    key:  'mainnet',
-    name: 'Mainnet',
-    type: 'mainnet',
-    rpcUrls: RPCS.mainnet,
-  },
-});
+/*──────────────────── helper utilities ─────────────────────*/
 
-/*────────── hostname → network helper (Master Overview §4/§7) ──────────*/
-export function detectNetworkFromHost(host = '') {
-  const h = host.toLowerCase();
-  if (
-    h.startsWith('ghostnet.') ||
-    h.startsWith('localhost') ||
-    h.startsWith('127.') ||
-    h === '::1'
-  ) {
-    return 'ghostnet';
+/** Return the ordered RPC list for the current net */
+export const getRpcList = () => RPC_URLS.slice();
+
+/**
+ * Simple fastest-node pick (first that responds to /chains/main/chain_id).
+ * Used by WalletContext bootstrap.
+ */
+export async function selectFastestRpc(timeoutMs = 3000) {
+  for (const url of RPC_URLS) {
+    try {
+      const ctrl  = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      const res   = await fetch(`${url}/chains/main/chain_id`, {
+        mode: 'cors',
+        signal: ctrl.signal
+      });
+      clearTimeout(timer);
+      if (res.ok) return url;
+    } catch { /* silence & try next */ }
   }
-  return 'mainnet';
-}
-
-/*────────── latency probe (unchanged) ──────────*/
-async function ping(url, timeout = 3000) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeout);
-  const start = performance.now();
-  try {
-    await fetch(`${url}/chains/main/blocks/head/header`, { signal: ctrl.signal });
-    return performance.now() - start;
-  } catch {
-    return Infinity;
-  } finally { clearTimeout(t); }
-}
-
-export async function selectFastestRpc(net = DEFAULT_NETWORK) {
-  const urls = NETWORKS[net].rpcUrls;
-  const rtts = await Promise.all(urls.map(ping));
-  return urls[rtts.indexOf(Math.min(...rtts))] || urls[0];
+  throw new Error('No reachable RPC endpoint');
 }
 
 /* What changed & why
-   • Restored explicit metadata objects (key/type/rpcUrls) expected by WalletContext.
-   • detectNetworkFromHost() keeps SSR & CSR in perfect lock-step. :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
+   • The file now *pipes through* to deployTarget.js instead of maintaining
+     its own duplicated tables.  All legacy imports keep working, but there
+     is exactly one place (deployTarget) where the net is selected and the
+     RPC list lives.  This eliminates branch drift and copy-paste bugs.
 */
