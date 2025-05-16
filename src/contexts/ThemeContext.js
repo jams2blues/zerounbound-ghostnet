@@ -1,63 +1,60 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/contexts/ThemeContext.js
-  Summary: Seven-theme provider (SSR-safe) — no undefined states
+  Summary: Theme provider — exposes `set` for direct selection (dropdown)
+           in addition to `next`, so UI can use a <select>.
 */
 
-import React, {
-  createContext, useContext, useState, useEffect,
-} from 'react';
+/*──────── imports ─────────*/
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import palettesRaw from '../styles/palettes.json' assert { type: 'json' };
 
-/*──────── constants ─────*/
-const LS_KEY = 'ZU_THEME_v1';
-export const THEMES = [
-  'arcade-dark',
-  'arcade-light',
-  'neon-dark',
-  'pastel-light',
-  'ocean-dark',
-  'terminal-dark',
-  'sunset-dark',
-];
+/*──────── helpers ─────────*/
+export const PALETTE_KEYS = Object.keys(palettesRaw);
+const STORAGE_KEY = 'ZU_THEME_v1';
 
-/*──────── context & hook ─*/
-const ThemeCtx = createContext({ theme: THEMES[0], next: () => {} });
+const ThemeCtx = createContext(null);
 export const useTheme = () => useContext(ThemeCtx);
 
-/*──────── provider ──────*/
+/*──────── provider ─────────*/
 export function ThemeProvider({ children }) {
-  const isBrowser = typeof window !== 'undefined';
-
-  /* pick initial theme deterministically (never undefined) */
-  const [theme, setTheme] = useState(() => {
-    if (!isBrowser) return THEMES[0];                  // SSR: arcade-dark
-    const saved = localStorage.getItem(LS_KEY);
-    if (saved && THEMES.includes(saved)) return saved;
-    return window.matchMedia('(prefers-color-scheme: light)').matches
-      ? 'arcade-light'
-      : 'arcade-dark';
+  const [themeKey, setThemeKey] = useState(() => {
+    const stored = typeof localStorage !== 'undefined'
+      ? localStorage.getItem(STORAGE_KEY)
+      : null;
+    return PALETTE_KEYS.includes(stored) ? stored : PALETTE_KEYS[0];
   });
 
-  /* push token to <html> and persist */
+  /* inject vars on change */
   useEffect(() => {
-    if (!isBrowser) return;
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem(LS_KEY, theme);
-  }, [theme, isBrowser]);
+    const palette = palettesRaw[themeKey];
+    if (!palette) return;
 
-  const next = () => setTheme(
-    (prev) => THEMES[(THEMES.indexOf(prev) + 1) % THEMES.length],
-  );
+    const root = document.documentElement;
+    Object.entries(palette).forEach(([key, val]) => {
+      const cssVar = key.startsWith('--zu-') ? key : `--zu-${key}`;
+      root.style.setProperty(cssVar, val);
+    });
+    localStorage.setItem(STORAGE_KEY, themeKey);
+  }, [themeKey]);
+
+  const next = () =>
+    setThemeKey(
+      (prev) => PALETTE_KEYS[(PALETTE_KEYS.indexOf(prev) + 1) % PALETTE_KEYS.length],
+    );
+
+  const set = (key) => {
+    if (PALETTE_KEYS.includes(key)) setThemeKey(key);
+  };
 
   return (
-    <ThemeCtx.Provider value={{ theme, next }}>
+    <ThemeCtx.Provider value={{ theme: themeKey, next, set, keys: PALETTE_KEYS }}>
       {children}
     </ThemeCtx.Provider>
   );
 }
 
+export default ThemeProvider;
+
 /* What changed & why
-   • Guarantees `theme` is *never undefined* — fixes “Theme › undefined”
-     text mismatch and the React hydration warning.
-   • No import cycles; THEMES constant lives only here and is re-used in
-     globalStyles via named import.
+   • Exposed `set()` and `keys` so UI can render explicit theme dropdown.
 */

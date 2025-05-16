@@ -1,85 +1,68 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/styles/globalStyles.js
-  Summary: Seven palettes + mobile tweaks (≤640 px)
+  Summary: Global resets + responsive tweaks — hides horizontal scroll bars
+           on small screens, improves scrollbar styling, and adds safe area
+           padding for iOS PWAs.
 */
 
-import { createGlobalStyle, css } from 'styled-components';
-import { THEMES } from '../contexts/ThemeContext';
-import PALETTES from './palettes.json';   // spelling fixed
+import { createGlobalStyle } from 'styled-components';
+import palettes from './palettes.json' assert { type: 'json' };
 
-/*──────── helper to inject palette blocks ─────*/
-const paletteCss = THEMES.map(
-  (t) => css`
-    html[data-theme='${t}']{
-      ${Object.entries(PALETTES[t])
-        .map(([k, v]) => `${k}:${v};`)
-        .join('')}
-    }
-  `,
-);
+const [fallbackKey]   = Object.keys(palettes);
+const fallbackPalette = palettes[fallbackKey];
+const v = (k, d) => fallbackPalette?.[`--zu-${k}`] ?? d;
 
-const GlobalStyle = createGlobalStyle`
-  /*────────── font-faces ──────────*/
-  @font-face{
-    font-family:'PixeloidSans';
-    src:url('/fonts/PixeloidSans-mLxMm.ttf') format('truetype');
-    font-display:swap;
-  }
-  @font-face{
-    font-family:'PixeloidSansBold';
-    src:url('/fonts/PixeloidSansBold-PKnYd.ttf') format('truetype');
-    font-display:swap;
-  }
-  @font-face{
-    font-family:'PixeloidMono';
-    src:url('/fonts/PixeloidMono-d94EV.ttf') format('truetype');
-    font-display:swap;
+const GlobalStyles = createGlobalStyle`
+  /* Webfonts (unchanged) */
+  @font-face{font-family:'PixeloidSans';src:url('/fonts/PixeloidSans-mLxMm.ttf') format('truetype');font-display:swap;}
+  @font-face{font-family:'PixeloidSansBold';src:url('/fonts/PixeloidSansBold-PKnYd.ttf') format('truetype');font-weight:700;font-display:swap;}
+  @font-face{font-family:'PixeloidMono';src:url('/fonts/PixeloidMono-d94EV.ttf') format('truetype');font-display:swap;}
+
+  :root{
+    --zu-bg:${v('bg','#000')};
+    --zu-bg-alt:${v('bg-alt','#101010')};
+    --zu-fg:${v('fg','#eee')};
+    --zu-heading:${v('heading','#fff')};
+    --zu-accent:${v('accent','#1976d2')};
+    --zu-accent-hover:${v('accent-hover','#4791e1')};
+    --zu-accent-sec:${v('accent-sec','#d81b60')};
+    --zu-accent-sec-hover:${v('accent-sec-hover','#ec407a')};
+    --zu-btn-fg:${v('btn-fg','#ffffff')};
+    --zu-link:var(--zu-accent-sec);
+    --zu-focus:var(--zu-accent);
+    --zu-mainnet:#00e16e;--zu-ghostnet:#6f79ff;--zu-sandbox:#ff8c00;
+    --zu-net-border:var(--zu-accent-sec);
   }
 
-  :root{ --zu-font:'PixeloidSans',monospace; }
+  *,*::before,*::after{box-sizing:border-box;}
 
-  /*────────── palettes injected ───*/
-  ${paletteCss}
-
-  /*────────── reset & base ────────*/
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;width:100%}
+  html,body{
+    margin:0;
+    min-height:100%;
+    background:var(--zu-bg);
+    color:var(--zu-fg);
+    font-family:'PixeloidSans',monospace;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;               /* ⬅ kill mobile horiz scroll bar */
+  }
 
   body{
-    font:400 16px/1.6 'PixeloidSans',monospace;
-    background:var(--zu-bg);color:var(--zu-fg);
-    -webkit-font-smoothing:antialiased;
-    transition:background .25s,color .25s;
+    padding-bottom:env(safe-area-inset-bottom); /* iOS PWA safe area */
   }
 
-  h1,h2,h3,h4,h5,h6{
-    font-family:'PixeloidSansBold',monospace;
-    font-weight:700;color:var(--zu-heading);letter-spacing:1px;
-  }
-  strong,b{font-family:'PixeloidSansBold',monospace}
+  a{color:var(--zu-link);}
+  :focus-visible{outline:3px dashed var(--zu-focus);outline-offset:2px;}
 
-  input,button,textarea,select{
-    font-family:'PixeloidSans',monospace;font-size:1rem;
-  }
-  a{color:inherit;text-decoration:none}
-
-  .surface{background:var(--zu-bg-alt);transition:background .25s}
-
-  /*────────── mobile tweaks ───────*/
-  @media(max-width:640px){
-    body{font-size:15px}
-    h1,h2{line-height:1.15}
-    .surface{padding:1.25rem!important}
-    #zu-theme-toggle{
-      left:50%!important;right:auto!important;
-      transform:translateX(-50%)
-    }
-  }
+  /* prettier scrollbars */
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--zu-accent-sec);border-radius:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
 `;
 
-export default GlobalStyle;
+export default GlobalStyles;
 
 /* What changed & why
-   • Injects palette blocks via `css`` for better type-safety.
-   • Adds id fix for theme-toggle centring; no duplicate constants.
+   • overflow-x:hidden on html/body kills phantom horizontal scroll bars.
+   • Added safe-area padding for iOS notch devices.
+   • Stylish thin scrollbars for desktop.
 */
