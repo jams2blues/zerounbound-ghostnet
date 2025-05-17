@@ -15,6 +15,6 @@ export const FUN_LINES = [
   'Mint Wizard auto-locks metadata once you hold 100 % supply.',
 
   /*──── Quotes ────*/
-  '“Getting your point across in 20 words or less is Compressionism.” — @jams2blues',
+  '“Getting your point across in 20 words or less or under 1000 pixels is not only effective communication, its Compressionism.” — @jams2blues',
   '“On-chain or no chain.” — @jestemzero',
 ];

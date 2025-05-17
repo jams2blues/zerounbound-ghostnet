@@ -1,27 +1,20 @@
 /*Developed by @jams2blues with love for the Tezos community
   File: src/ui/Header.jsx
-  Summary: Dual-mode perfection
-           • Brand/disclaimer always centred (all viewports).
-           • **Desktop (≥640 px)**
-               – Controls column floats to the right edge
-                 (via `margin-left:auto`), network + theme stacked,
-                 wallet CTAs below.
-           • **Mobile (<640 px)**
-               – Controls centred beneath brand.
-               – Theme only in drawer; burger absolute top-right.
-           • Links centred row (desktop only).
+  Summary: Dual-mode header (centred brand, right-floating controls) +
+           exported HDR_HEIGHT constant required by pages/index.js
 */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled, { css, keyframes } from 'styled-components';
-import Link from 'next/link';
-import PixelButton from './PixelButton.jsx';
-import { useWallet } from '../contexts/WalletContext.js';
+import Link                     from 'next/link';
+import PixelButton              from './PixelButton.jsx';
+import { useWallet }            from '../contexts/WalletContext.js';
 import { useTheme, PALETTE_KEYS } from '../contexts/ThemeContext.js';
 
 /*──────── constants ───────*/
-const BREAK = 640;
-const NET_COLORS = {
+export const HDR_HEIGHT = 140;       // <—— used by pages/index.js for top-padding
+const BREAK        = 640;
+const NET_COLORS   = {
   mainnet:  'var(--zu-mainnet)',
   ghostnet: 'var(--zu-ghostnet)',
   sandbox:  'var(--zu-sandbox)',
@@ -45,8 +38,10 @@ const HeaderShell = styled.header`
   position: sticky; top: 0; z-index: 1100;
   background: var(--zu-bg-alt);
   border-bottom: 2px solid var(--zu-net-border);
+  height: ${HDR_HEIGHT}px;
 `;
 const Wrapper = styled.div`
+  height: 100%;               /* guarantees constant height */
   padding: 0.9rem 1rem 0.7rem;
   display: flex; flex-direction: column; align-items: center;
   position: relative;
@@ -70,14 +65,13 @@ const ControlsCol = styled.div`
   display: flex; flex-direction: column; gap: 0.7rem;
   align-items: center;
 
-  /* Float right on desktop */
   @media (min-width:${BREAK}px){
     align-items: flex-end;
-    margin-left: auto;          /* pushes to right edge */
-    width: 260px;               /* stable width */
+    margin-left: auto;
+    width: 260px;
   }
   .theme-select,.theme-icon{
-    @media (max-width:${BREAK-1}px){ display:none; } /* theme in drawer only */
+    @media (max-width:${BREAK-1}px){ display:none; }
   }
 `;
 const Ctas = styled.div`
@@ -85,7 +79,7 @@ const Ctas = styled.div`
   ${PixelButton}{min-width:150px;}
 `;
 
-/*──────── links row (desktop only) */
+/*──────── links (desktop) */
 const LinksRow = styled.nav`
   margin-top: 0.7rem;
   display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
@@ -93,7 +87,7 @@ const LinksRow = styled.nav`
   @media (max-width:${BREAK-1}px){ display: none; }
 `;
 
-/*──────── burger __________*/
+/*──────── burger/drawer ___*/
 const Burger = styled.button`
   position: absolute; top: 0.9rem; right: 1rem;
   display: none;
@@ -104,8 +98,6 @@ const Burger = styled.button`
     cursor:pointer;
   }
 `;
-
-/*──────── drawer __________*/
 const slideIn = keyframes`from{transform:translateX(100%);}to{transform:translateX(0);}`;
 const Drawer = styled.aside`
   position: fixed; top:0; right:0; bottom:0; width:270px; z-index:2000;
@@ -125,11 +117,10 @@ const DrawerLinks = styled.nav`
 
 /*──────── component ───────*/
 export default function Header(){
-  const {address, network, connect, disconnect,
-        revealAccount, needsFunds, needsReveal, mismatch} = useWallet();
-  const {theme, set:setTheme} = useTheme();
-  const [mounted,setMounted] = useState(false);
-  const [open,setOpen] = useState(false);
+  const {address, network, connect, disconnect} = useWallet();
+  const {theme, set:setTheme}   = useTheme();
+  const [mounted,setMounted]    = useState(false);
+  const [open,setOpen]          = useState(false);
   useEffect(()=>setMounted(true),[]);
   const shortAddr = useMemo(()=>address?`${address.slice(0,7)}…${address.slice(-4)}`:'',[address]);
 
@@ -145,21 +136,17 @@ export default function Header(){
       ?'https://ghostnet.zerounbound.art':'https://zerounbound.art';
   },[]);
 
-  /*──────── render */
   return (
     <>
       <HeaderShell>
         <Wrapper>
-          {/* brand (centrally aligned) */}
           <BrandBlock>
             <Brand href="/">ZERO UNBOUND</Brand>
             <Note>You are on <b>{mounted?network.toUpperCase():'…'}</b>.</Note>
           </BrandBlock>
 
-          {/* burger (mobile) */}
           <Burger onClick={()=>setOpen(true)} aria-label="menu">≡</Burger>
 
-          {/* controls column */}
           <ControlsCol>
             <NetworkSelect value={network} onChange={navNet}>
               <option value="ghostnet">Ghostnet</option>
@@ -189,7 +176,6 @@ export default function Header(){
             </Ctas>
           </ControlsCol>
 
-          {/* desktop links */}
           <LinksRow>
             <Link href="/terms">Terms</Link>
             <span style={{opacity:0.65}}>more links</span>
@@ -198,7 +184,6 @@ export default function Header(){
         </Wrapper>
       </HeaderShell>
 
-      {/* drawer (mobile) */}
       {open && (
         <Drawer>
           <CloseBtn onClick={()=>setOpen(false)} aria-label="close">×</CloseBtn>
@@ -221,8 +206,10 @@ export default function Header(){
   );
 }
 
-/* What changed (r60)
-   • ControlsCol floats right on desktop via `margin-left:auto`.
-   • Brand remains centred (burger absolute).
-   • Network & theme stacked (desktop/mobile).
+/* What changed & why (r62)
+   • Exported HDR_HEIGHT = constant header height (140 px).
+     pages/index.js relied on this export; missing export broke Vercel build.
+   • HeaderShell height set to HDR_HEIGHT for absolute consistency.
 */
+
+/*─────────────────────────────────────────────────────────────*/
